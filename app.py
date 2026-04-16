@@ -22,7 +22,7 @@ def compress_video(input_path, output_path):
         "-y",
         "-i", input_path,
 
-        "-vf", "scale=720:1280:force_original_aspect_ratio=decrease",
+        "-vf", "scale='min(720,iw)':-2",
 
         "-c:v", "libx264",
         "-crf", "24",
