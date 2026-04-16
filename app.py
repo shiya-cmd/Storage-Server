@@ -7,17 +7,18 @@ from flask import Flask, request, jsonify, send_from_directory
 
 app = Flask(__name__)
 
-# Limit upload size (200MB)
-# app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024
 
 UPLOAD_FOLDER = "uploads"
+IMAGE_FOLDER = "images"
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(IMAGE_FOLDER, exist_ok=True)
 
 video_queue = Queue()
 job_status = {}
 
 # ----------------------------
-# Compression Function
+# Compression Function (Video)
 # ----------------------------
 def compress_video(input_path, output_path):
     command = [
@@ -25,7 +26,7 @@ def compress_video(input_path, output_path):
         "-y",
         "-i", input_path,
 
-        # Universal scaling (safe for all videos)
+        # Safe universal scaling
         "-vf", "scale='if(gt(iw,1080),1080,iw)':-2",
 
         "-c:v", "libx264",
@@ -98,7 +99,7 @@ def worker():
                 if os.path.exists(temp_output):
                     os.remove(temp_output)
 
-            else:  # failed
+            else:
                 job_status[job_id] = "failed"
                 print(f"Compression failed: keeping original {file_path}")
 
@@ -116,12 +117,12 @@ def worker():
             video_queue.task_done()
 
 
-# Start worker thread
+# Start worker
 threading.Thread(target=worker, daemon=True).start()
 
 
 # ----------------------------
-# Upload API
+# Upload Video
 # ----------------------------
 @app.route("/upload", methods=["POST"])
 def upload_video():
@@ -147,6 +148,33 @@ def upload_video():
 
 
 # ----------------------------
+# Upload Image (NO compression)
+# ----------------------------
+@app.route("/upload/image", methods=["POST"])
+def upload_image():
+    if "image" not in request.files:
+        return jsonify({"error": "No image file"}), 400
+
+    file = request.files["image"]
+
+    ext = file.filename.split(".")[-1].lower()
+    allowed = {"jpg", "jpeg", "png", "webp"}
+
+    if ext not in allowed:
+        return jsonify({"error": "Invalid image type"}), 400
+
+    filename = f"{uuid.uuid4()}.{ext}"
+    filepath = os.path.join(IMAGE_FOLDER, filename)
+
+    file.save(filepath)
+
+    return jsonify({
+        "status": "uploaded",
+        "image_url": f"/image/{filename}"
+    })
+
+
+# ----------------------------
 # Status API
 # ----------------------------
 @app.route("/status/<job_id>")
@@ -163,6 +191,14 @@ def get_status(job_id):
 @app.route("/video/<filename>")
 def serve_video(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
+
+# ----------------------------
+# Serve Image
+# ----------------------------
+@app.route("/image/<filename>")
+def serve_image(filename):
+    return send_from_directory(IMAGE_FOLDER, filename)
 
 
 # ----------------------------
