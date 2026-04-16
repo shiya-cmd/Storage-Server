@@ -21,22 +21,29 @@ def compress_video(input_path, output_path):
         "ffmpeg",
         "-y",
         "-i", input_path,
-
-        "-vf", "scale='min(720,iw)':-2",
-
+    
+        # Keep original resolution (NO forced downscale)
+        "-vf", "scale=iw:-2",
+    
         "-c:v", "libx264",
-        "-crf", "24",
-        "-preset", "fast",
-
-        "-b:v", "2M",
-        "-maxrate", "2M",
-        "-bufsize", "4M",
-
+    
+        # VERY HIGH QUALITY
+        "-crf", "18",          # 18–20 = visually lossless
+        "-preset", "slow",     # better compression efficiency
+    
+        # REMOVE bitrate cap (important!)
+        # no -b:v, no -maxrate
+    
+        "-profile:v", "high",
+        "-level", "4.2",
+    
+        "-pix_fmt", "yuv420p",
+    
         "-c:a", "aac",
-        "-b:a", "96k",
-
+        "-b:a", "192k",
+    
         "-movflags", "+faststart",
-
+    
         output_path
     ]
 
