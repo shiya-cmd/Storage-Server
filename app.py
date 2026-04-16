@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify, send_from_directory
 app = Flask(__name__)
 
 # Limit upload size (200MB)
-app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024
+# app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
