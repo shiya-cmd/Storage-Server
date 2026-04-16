@@ -40,7 +40,7 @@ def compress_video(input_path, output_path):
         output_path
     ]
 
-    process = subprocess.Popen(
+    result = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
