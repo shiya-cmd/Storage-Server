@@ -19,26 +19,25 @@ job_status = {}  # job_id → status
 def compress_video(input_path, output_path):
     command = [
         "ffmpeg",
-        "-y",
-        "-i", input_path,
+        "-i", input_file,
 
-        "-vf", "scale=iw:-2",
+        "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease",
 
         "-c:v", "libx264",
-        "-crf", "18",
+        "-crf", "20",
         "-preset", "slow",
 
         "-profile:v", "high",
-        "-level", "4.2",
+        "-level", "4.1",
 
         "-pix_fmt", "yuv420p",
 
         "-c:a", "aac",
-        "-b:a", "192k",
+        "-b:a", "128k",
 
         "-movflags", "+faststart",
 
-        output_path
+        output_file
     ]
 
     process = subprocess.Popen(
