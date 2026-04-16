@@ -47,20 +47,10 @@ def compress_video(input_path, output_path):
         text=True
     )
 
-    try:
-        stdout, stderr = process.communicate(timeout=300)
-
-        if process.returncode != 0:
-            print("FFmpeg ERROR:\n", stderr)
-            return "failed"
-
-        return "completed"
-
-    except subprocess.TimeoutExpired:
-        print("FFmpeg timeout, killing process...")
-        process.kill()
-
-        return "timeout"
+    if result.returncode != 0:
+        print("FFmpeg ERROR:\n", result.stderr) 
+    
+    return result.returncode == 0
 
 
 # ----------------------------
