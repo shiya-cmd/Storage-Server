@@ -19,7 +19,7 @@ job_status = {}  # job_id → status
 def compress_video(input_path, output_path):
     command = [
         "ffmpeg",
-        "-y",  # overwrite temp file
+        "-y",
         "-i", input_path,
 
         "-vf", "scale=720:1280:force_original_aspect_ratio=decrease",
@@ -40,16 +40,17 @@ def compress_video(input_path, output_path):
         output_path
     ]
 
-    try:
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=300  # prevent hanging
-        )
-        return result.returncode == 0
-    except subprocess.TimeoutExpired:
-        return False
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+
+    if result.returncode != 0:
+        print("FFmpeg ERROR:\n", result.stderr)
+
+    return result.returncode == 0
 
 
 # ----------------------------
