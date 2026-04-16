@@ -7,11 +7,14 @@ from flask import Flask, request, jsonify, send_from_directory
 
 app = Flask(__name__)
 
+# Limit upload size (200MB)
+app.config['MAX_CONTENT_LENGTH'] = 200 * 1024 * 1024
+
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 video_queue = Queue()
-job_status = {}  # job_id → status
+job_status = {}
 
 # ----------------------------
 # Compression Function
@@ -19,9 +22,11 @@ job_status = {}  # job_id → status
 def compress_video(input_path, output_path):
     command = [
         "ffmpeg",
+        "-y",
         "-i", input_path,
 
-        "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease",
+        # Universal scaling (safe for all videos)
+        "-vf", "scale='if(gt(iw,1080),1080,iw)':-2",
 
         "-c:v", "libx264",
         "-crf", "20",
@@ -40,17 +45,27 @@ def compress_video(input_path, output_path):
         output_path
     ]
 
-    result = subprocess.Popen(
+    process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
     )
 
-    if result.returncode != 0:
-        print("FFmpeg ERROR:\n", result.stderr) 
-    
-    return result.returncode == 0
+    try:
+        stdout, stderr = process.communicate(timeout=300)
+
+        if process.returncode != 0:
+            print("FFmpeg ERROR:\n", stderr)
+            return "failed"
+
+        return "completed"
+
+    except subprocess.TimeoutExpired:
+        print("FFmpeg timeout, killing process...")
+        process.kill()
+        process.communicate()
+        return "timeout"
 
 
 # ----------------------------
@@ -67,6 +82,7 @@ def worker():
             job_status[job_id] = "processing"
 
             result = compress_video(file_path, temp_output)
+            print(f"Job {job_id} → {result}")
 
             if result == "completed" and os.path.exists(temp_output):
                 os.remove(file_path)
@@ -77,14 +93,14 @@ def worker():
 
             elif result == "timeout":
                 job_status[job_id] = "timeout"
-                print(f"Timeout: {file_path}")
+                print(f"Timeout: keeping original {file_path}")
 
                 if os.path.exists(temp_output):
                     os.remove(temp_output)
 
             else:  # failed
                 job_status[job_id] = "failed"
-                print(f"Compression failed, keeping original: {file_path}")
+                print(f"Compression failed: keeping original {file_path}")
 
                 if os.path.exists(temp_output):
                     os.remove(temp_output)
@@ -100,12 +116,12 @@ def worker():
             video_queue.task_done()
 
 
-# Start background worker
+# Start worker thread
 threading.Thread(target=worker, daemon=True).start()
 
 
 # ----------------------------
-# Upload Endpoint
+# Upload API
 # ----------------------------
 @app.route("/upload", methods=["POST"])
 def upload_video():
@@ -120,7 +136,6 @@ def upload_video():
 
     file.save(filepath)
 
-    # Add to queue
     job_status[job_id] = "queued"
     video_queue.put((job_id, filepath))
 
@@ -132,7 +147,7 @@ def upload_video():
 
 
 # ----------------------------
-# Status Endpoint (optional)
+# Status API
 # ----------------------------
 @app.route("/status/<job_id>")
 def get_status(job_id):
